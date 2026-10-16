@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/anabolic-capital/congress-trades/main/schema.json",
+  "title": "congress-trades output",
+  "description": "One record per disclosed transaction from U.S. Senate and House Periodic Transaction Reports (STOCK Act).",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "chamber": {
+        "type": "string",
+        "description": "'senate' or 'house'."
+      },
+      "filer_name": {
+        "type": "string",
+        "description": "Member's name as filed, 'First Last'."
+      },
+      "first_name": {
+        "type": "string",
+        "description": "First name as filed."
+      },
+      "last_name": {
+        "type": "string",
+        "description": "Last name as filed."
+      },
+      "state_district": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "House only: state + district, e.g. 'CA11'."
+      },
+      "filing_id": {
+        "type": "string",
+        "description": "Senate report UUID or House DocID. Stable per filing."
+      },
+      "filing_url": {
+        "type": "string",
+        "description": "Link to the original report (Senate HTML page or House PDF)."
+      },
+      "filing_date": {
+        "type": "string",
+        "description": "Date the report was filed, YYYY-MM-DD."
+      },
+      "report_title": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Senate only. Amendments end in '(Amendment N)'."
+      },
+      "transaction_date": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Date of the trade, YYYY-MM-DD."
+      },
+      "notification_date": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "House only: date the member was notified of the trade, YYYY-MM-DD."
+      },
+      "owner": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "'self', 'spouse', 'joint' or 'dependent' (other values passed through lower-cased)."
+      },
+      "ticker": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Upper-case ticker; null for bonds, Treasuries, private funds and other assets without one."
+      },
+      "asset_name": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Asset description as filed."
+      },
+      "asset_type": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Senate: e.g. 'Stock', 'Corporate Bond'. House: name of the Clerk's asset code."
+      },
+      "asset_type_code": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "House only: the Clerk's two-letter asset code, e.g. 'ST', 'OP', 'GS'."
+      },
+      "transaction_type": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "'buy', 'sell' or 'exchange' (other values passed through lower-cased)."
+      },
+      "transaction_type_raw": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "As filed, e.g. 'Sale (Partial)', 'Purchase', 'P', 'S (partial)'."
+      },
+      "amount_range": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Disclosed dollar band, e.g. '$1,001 - $15,000'. Not the exact trade size."
+      },
+      "amount_min": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Lower bound of the band in dollars."
+      },
+      "amount_max": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "description": "Upper bound in dollars; null for open-ended bands ('Over $50,000,000'). Equals amount_min when an exact figure was filed."
+      },
+      "account": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "House only: the account the asset is held in ('Subholding Of')."
+      },
+      "comment": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Senate comment column or House description line."
+      }
+    },
+    "required": [
+      "chamber",
+      "filer_name",
+      "first_name",
+      "last_name",
+      "state_district",
+      "filing_id",
+      "filing_url",
+      "filing_date",
+      "report_title",
+      "transaction_date",
+      "notification_date",
+      "owner",
+      "ticker",
+      "asset_name",
+      "asset_type",
+      "asset_type_code",
+      "transaction_type",
+      "transaction_type_raw",
+      "amount_range",
+      "amount_min",
+      "amount_max",
+      "account",
+      "comment"
+    ],
+    "additionalProperties": false
+  }
+}

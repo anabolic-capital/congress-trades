@@ -163,3 +163,17 @@ def test_house_years_include_previous_year_in_january():
     assert ct._house_years(date(2026, 1, 5), date(2026, 2, 1)) == [2025, 2026]
     assert ct._house_years(date(2026, 3, 1), date(2026, 10, 1)) == [2026]
     assert ct._house_years(date(2024, 6, 1), date(2026, 10, 1)) == [2024, 2025, 2026]
+
+
+# --- schema ---------------------------------------------------------------- #
+
+def test_schema_json_is_up_to_date():
+    """schema.json is committed for agents/tools; regenerate with: python congress_trades.py --schema > schema.json"""
+    import json
+    committed = json.loads((Path(__file__).resolve().parent.parent / "schema.json").read_text())
+    assert committed == ct.json_schema()
+
+
+def test_records_have_every_schema_field():
+    rec = ct._record(chamber="house", ticker="AAPL")
+    assert list(rec) == ct.FIELDS and rec["comment"] is None

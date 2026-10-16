@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-congress_trades.py: scrape the stock trades members of Congress disclose under the STOCK Act.
+congress-trades by Anabolic Capital: scrape the stock trades members of Congress disclose
+under the STOCK Act.  https://github.com/anabolic-capital/congress-trades
 
 Sources
   Senate  efdsearch.senate.gov             (electronic Periodic Transaction Reports, HTML)
@@ -14,6 +15,9 @@ written to JSON or CSV.
     python congress_trades.py --chamber house --name pelosi --ticker NVDA
 
 Dates filter on the FILING date (when the report was submitted), not the trade date.
+`--schema` prints the output's JSON Schema. Logs go to stderr; data goes to the output file
+(or stdout with `-o -`). Exit codes: 0 ok, 1 error, 2 bad arguments, 130 interrupted
+(partial results are still written).
 
 Requires: requests (both chambers) and pdfplumber (House only).
 """
@@ -37,34 +41,57 @@ __version__ = "1.0.0"
 
 log = logging.getLogger("congress_trades")
 
-USER_AGENT = f"congress-trades/{__version__} (STOCK Act disclosure scraper; python-requests)"
+REPO_URL = "https://github.com/anabolic-capital/congress-trades"
+USER_AGENT = f"congress-trades/{__version__} (+{REPO_URL})"
 
-# Output columns, in order. Fields that one chamber doesn't publish are null.
-FIELDS = [
-    "chamber",               # "senate" | "house"
-    "filer_name",            # "First Last" as filed
-    "first_name",
-    "last_name",
-    "state_district",        # House only, e.g. "CA12"
-    "filing_id",             # Senate: report UUID; House: DocID
-    "filing_url",
-    "filing_date",           # YYYY-MM-DD
-    "report_title",          # Senate only, e.g. "Periodic Transaction Report for 09/14/2026 (Amendment 1)"
-    "transaction_date",      # YYYY-MM-DD
-    "notification_date",     # House only: when the member was notified of the trade
-    "owner",                 # self | spouse | joint | dependent | <raw lower-cased value>
-    "ticker",
-    "asset_name",
-    "asset_type",            # e.g. "Stock", "Corporate Bond", "Stock Option"
-    "asset_type_code",       # House only: the bracketed code, e.g. "ST"
-    "transaction_type",      # buy | sell | exchange | <raw lower-cased value>
-    "transaction_type_raw",  # as disclosed, e.g. "Sale (Partial)", "S (partial)"
-    "amount_range",          # as disclosed, e.g. "$1,001 - $15,000"
-    "amount_min",
-    "amount_max",            # null for open-ended bands ("Over $50,000,000")
-    "account",               # House only: the "Subholding Of" account
-    "comment",               # Senate comment column / House description line
-]
+# Output record schema: field -> (JSON type, description). Order = CSV column order.
+# Fields that one chamber doesn't publish are null. `python congress_trades.py --schema`
+# prints this as JSON Schema.
+SCHEMA: dict[str, tuple[str | list[str], str]] = {
+    "chamber": ("string", "'senate' or 'house'."),
+    "filer_name": ("string", "Member's name as filed, 'First Last'."),
+    "first_name": ("string", "First name as filed."),
+    "last_name": ("string", "Last name as filed."),
+    "state_district": (["string", "null"], "House only: state + district, e.g. 'CA11'."),
+    "filing_id": ("string", "Senate report UUID or House DocID. Stable per filing."),
+    "filing_url": ("string", "Link to the original report (Senate HTML page or House PDF)."),
+    "filing_date": ("string", "Date the report was filed, YYYY-MM-DD."),
+    "report_title": (["string", "null"], "Senate only. Amendments end in '(Amendment N)'."),
+    "transaction_date": (["string", "null"], "Date of the trade, YYYY-MM-DD."),
+    "notification_date": (["string", "null"], "House only: date the member was notified of the trade, YYYY-MM-DD."),
+    "owner": (["string", "null"], "'self', 'spouse', 'joint' or 'dependent' (other values passed through lower-cased)."),
+    "ticker": (["string", "null"], "Upper-case ticker; null for bonds, Treasuries, private funds and other assets without one."),
+    "asset_name": (["string", "null"], "Asset description as filed."),
+    "asset_type": (["string", "null"], "Senate: e.g. 'Stock', 'Corporate Bond'. House: name of the Clerk's asset code."),
+    "asset_type_code": (["string", "null"], "House only: the Clerk's two-letter asset code, e.g. 'ST', 'OP', 'GS'."),
+    "transaction_type": (["string", "null"], "'buy', 'sell' or 'exchange' (other values passed through lower-cased)."),
+    "transaction_type_raw": (["string", "null"], "As filed, e.g. 'Sale (Partial)', 'Purchase', 'P', 'S (partial)'."),
+    "amount_range": (["string", "null"], "Disclosed dollar band, e.g. '$1,001 - $15,000'. Not the exact trade size."),
+    "amount_min": (["number", "null"], "Lower bound of the band in dollars."),
+    "amount_max": (["number", "null"], "Upper bound in dollars; null for open-ended bands ('Over $50,000,000'). Equals amount_min when an exact figure was filed."),
+    "account": (["string", "null"], "House only: the account the asset is held in ('Subholding Of')."),
+    "comment": (["string", "null"], "Senate comment column or House description line."),
+}
+FIELDS = list(SCHEMA)
+
+
+def json_schema() -> dict:
+    """JSON Schema for the tool's output: an array of transaction records."""
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://raw.githubusercontent.com/anabolic-capital/congress-trades/main/schema.json",
+        "title": "congress-trades output",
+        "description": "One record per disclosed transaction from U.S. Senate and House "
+                       "Periodic Transaction Reports (STOCK Act).",
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {k: {"type": t, "description": d} for k, (t, d) in SCHEMA.items()},
+            "required": FIELDS,
+            "additionalProperties": False,
+        },
+    }
+
 
 DEFAULT_LOOKBACK_DAYS = 30
 
@@ -663,11 +690,12 @@ def write_output(trades: Iterable[dict], path: str, fmt: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
-        prog="congress_trades.py",
+        prog="congress-trades",
         description="Scrape STOCK Act trade disclosures (Periodic Transaction Reports) "
                     "from the U.S. Senate and House into JSON or CSV.",
         epilog="Dates filter on the filing date, not the trade date. By running this you accept "
-               "the Senate eFD terms of use (5 U.S.C. app. 105(c)); see the README.",
+               "the Senate eFD terms of use (5 U.S.C. app. 105(c)); see the README. "
+               f"Anabolic Capital, {REPO_URL}",
     )
     p.add_argument("--chamber", choices=("both", "senate", "house"), default="both",
                    help="which chamber to scrape (default: both)")
@@ -683,8 +711,14 @@ def main(argv: list[str] | None = None) -> int:
                    help="output format (default: from the --output extension, else json)")
     p.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     p.add_argument("-q", "--quiet", action="store_true", help="only log warnings and errors")
+    p.add_argument("--schema", action="store_true", help="print the output's JSON Schema and exit")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = p.parse_args(argv)
+
+    if args.schema:
+        json.dump(json_schema(), sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return 0
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.WARNING if args.quiet else logging.INFO,

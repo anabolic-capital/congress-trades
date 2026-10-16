@@ -1,14 +1,48 @@
-# congress-trades
+<div align="center">
 
-A single Python script that scrapes the stock trades members of the **U.S. Senate and House** disclose under the STOCK Act, and writes them out as clean JSON or CSV, one row per transaction.
+# 🏛️ congress-trades
+
+**Every stock trade Congress discloses, as clean JSON or CSV.**
+
+Scrapes STOCK Act filings from the U.S. Senate and House straight from the official sites. One file, two dependencies, no API keys.
+
+[![tests](https://github.com/anabolic-capital/congress-trades/actions/workflows/tests.yml/badge.svg)](https://github.com/anabolic-capital/congress-trades/actions/workflows/tests.yml)
+![python](https://img.shields.io/badge/python-3.9%2B-blue)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+![agent ready](https://img.shields.io/badge/AI%20agents-ready-8A2BE2)
+
+Built by **[Anabolic Capital](https://github.com/anabolic-capital)**
+
+</div>
+
+---
+
+## Quick start
 
 ```bash
-pip install requests pdfplumber
-python congress_trades.py
+uvx --from git+https://github.com/anabolic-capital/congress-trades congress-trades
 # → trades.json: every Senate + House trade filed in the last 30 days
 ```
 
-No database, no browser, no API keys. It reads the two official public sources directly:
+No `uv`? Use pip instead:
+
+```bash
+pip install git+https://github.com/anabolic-capital/congress-trades
+congress-trades
+```
+
+Or clone it and run the script directly. It's one file:
+
+```bash
+git clone https://github.com/anabolic-capital/congress-trades.git
+cd congress-trades
+pip install -r requirements.txt     # requests + pdfplumber
+python congress_trades.py
+```
+
+Python 3.9 or newer. `requests` covers the Senate; `pdfplumber` reads the House PDFs.
+
+### Where the data comes from
 
 | Chamber | Source | Format |
 |---|---|---|
@@ -17,39 +51,29 @@ No database, no browser, no API keys. It reads the two official public sources d
 
 ---
 
-## Install
-
-Python 3.9 or newer.
-
-```bash
-git clone https://github.com/<you>/congress-trades.git
-cd congress-trades
-pip install -r requirements.txt
-```
-
-`requests` is the only dependency for the Senate. `pdfplumber` is needed for the House (it reads the PDFs).
-
 ## Usage
+
+The examples use `congress-trades`. From a clone, `python congress_trades.py` works the same way.
 
 ```bash
 # Both chambers, last 30 days → trades.json
-python congress_trades.py
+congress-trades
 
 # A specific window, as CSV
-python congress_trades.py --start-date 2026-01-01 --end-date 2026-03-31 -o q1.csv
+congress-trades --start-date 2026-01-01 --end-date 2026-03-31 -o q1.csv
 
 # One chamber
-python congress_trades.py --chamber senate
-python congress_trades.py --chamber house --start-date 2026-01-01
+congress-trades --chamber senate
+congress-trades --chamber house --start-date 2026-01-01
 
 # One member (case-insensitive substring of their name)
-python congress_trades.py --name pelosi --start-date 2025-01-01 -o pelosi.csv
+congress-trades --name pelosi --start-date 2025-01-01 -o pelosi.csv
 
 # Only certain tickers
-python congress_trades.py --ticker NVDA,AAPL,MSFT
+congress-trades --ticker NVDA,AAPL,MSFT
 
 # Pipe JSON to another tool; progress logs go to stderr
-python congress_trades.py -o - -q | jq '.[] | select(.transaction_type == "buy")'
+congress-trades -o - -q | jq '.[] | select(.transaction_type == "buy")'
 ```
 
 | Flag | Default | |
@@ -62,6 +86,7 @@ python congress_trades.py -o - -q | jq '.[] | select(.transaction_type == "buy")
 | `-o, --output FILE` | `trades.json` | `.csv` writes CSV; `-` writes to stdout. |
 | `--format {json,csv}` | from extension | Force the output format. |
 | `-q` / `-v` | | Quieter / debug logging. |
+| `--schema` | | Print the output's JSON Schema and exit. |
 
 > **Dates are filing dates.** The window filters on when the report was filed, not when the trade happened. Members have up to 45 days to report, so a trade from June can show up in an August search.
 
@@ -80,6 +105,23 @@ df[df.transaction_type == "buy"].groupby("ticker").amount_min.sum().nlargest(20)
 ```
 
 You can also call `scrape_senate(start, end)` and `scrape_house(start, end)` with `datetime.date` arguments, or use the parsers on their own: `parse_senate_ptr(html)` and `parse_house_ptr(pdf_text)`.
+
+---
+
+## Use it with AI agents
+
+congress-trades is built to be easy for AI agents to call:
+
+- **One command, JSON on stdout:** `congress-trades -o - -q` writes data to stdout and logs to stderr, with fixed keys on every record.
+- **Machine-readable schema:** `congress-trades --schema`, or [`schema.json`](schema.json).
+- **Predictable exit codes:** `0` ok, `1` error, `2` bad arguments, `130` interrupted. Partial results are still written on error or Ctrl-C.
+- **[`AGENTS.md`](AGENTS.md)**: instructions for coding agents (Codex, Cursor, Copilot, Gemini CLI…), covering how to call it, how to read the results, and how the scrapers work. [`CLAUDE.md`](CLAUDE.md) points Claude Code at the same file.
+- **[`llms.txt`](llms.txt)**: a short index of the project for LLMs.
+- **Claude skill:** copy [`skills/congress-trades/`](skills/congress-trades/SKILL.md) into `~/.claude/skills/`. Claude can then answer questions like *"what did senators buy last month?"* by running the tool itself.
+
+```bash
+mkdir -p ~/.claude/skills && cp -r skills/congress-trades ~/.claude/skills/
+```
 
 ---
 
@@ -165,12 +207,14 @@ Please be considerate. Keep the built-in delays, don't run several copies at onc
 ## Development
 
 ```bash
-pip install pytest
+pip install -e ".[dev]"
 python -m pytest -q        # offline tests, no network
 ```
+
+If you change the output fields in `SCHEMA`, regenerate the schema file with `python congress_trades.py --schema > schema.json`. A test checks that it's in sync.
 
 The tests use text from real Senate HTML and House PDF filings. If you find a filing that parses wrong, add its text as a test case.
 
 ## License
 
-[MIT](LICENSE). The disclosure data is a U.S. government public record, subject to the use restrictions above.
+[MIT](LICENSE) © Anabolic Capital. Not affiliated with the U.S. Congress. The disclosure data is a U.S. government public record, subject to the use restrictions above.

@@ -1,0 +1,20 @@
+# congress-trades
+
+> Single-file Python CLI by Anabolic Capital that scrapes U.S. Senate (efdsearch.senate.gov) and House (disclosures-clerk.house.gov) STOCK Act Periodic Transaction Reports into one JSON/CSV record per stock trade. No API keys, database or browser. Run with `uvx --from git+https://github.com/anabolic-capital/congress-trades congress-trades -o - -q` to get JSON on stdout. Date filters apply to the filing date. Amounts are disclosure bands, not exact sizes.
+
+## Docs
+
+- [README](https://github.com/anabolic-capital/congress-trades/blob/main/README.md): install, CLI flags, Python API, output fields, limitations, legal notice
+- [AGENTS.md](https://github.com/anabolic-capital/congress-trades/blob/main/AGENTS.md): how AI agents should call the tool, interpret results and change the code
+- [schema.json](https://raw.githubusercontent.com/anabolic-capital/congress-trades/main/schema.json): JSON Schema for the output records
+
+## Code
+
+- [congress_trades.py](https://raw.githubusercontent.com/anabolic-capital/congress-trades/main/congress_trades.py): the whole tool (CLI, `scrape()` Python API, Senate and House parsers)
+- [tests/test_parsers.py](https://github.com/anabolic-capital/congress-trades/blob/main/tests/test_parsers.py): offline parser tests with real filing fixtures
+
+## Optional
+
+- [Claude skill](https://github.com/anabolic-capital/congress-trades/blob/main/skills/congress-trades/SKILL.md): drop-in Agent Skill for Claude Code / Claude apps
+- [House asset type codes](https://fd.house.gov/reference/asset-type-codes.aspx): official meanings of `asset_type_code`
+- [STOCK Act](https://www.congress.gov/bill/112th-congress/senate-bill/2038): the disclosure law
